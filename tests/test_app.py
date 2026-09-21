@@ -45,3 +45,25 @@ def test_student_signup_persists(tmp_path):
 
     activities = client.get("/activities").json()
     assert "student@mergington.edu" in activities["Chess Club"]["participants"]
+
+
+def test_admin_summary_endpoint(tmp_path):
+    app = create_app(db_path=str(tmp_path / "activities.db"))
+    client = TestClient(app)
+
+    login_response = client.post(
+        "/admin/login",
+        json={"username": "admin", "password": "admin123"},
+    )
+    token = login_response.json()["token"]
+
+    summary_response = client.get(
+        "/admin/dashboard",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert summary_response.status_code == 200, summary_response.text
+    payload = summary_response.json()
+    assert payload["total_activities"] >= 1
+    assert payload["total_students"] >= 1
+    assert "activities" in payload
