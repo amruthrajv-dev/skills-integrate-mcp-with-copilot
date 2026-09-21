@@ -277,6 +277,42 @@ def create_app(db_path: str | None = None) -> FastAPI:
         require_admin(authorization)
         return fetch_activities(resolved_db_path)
 
+    @app.get("/admin/dashboard")
+    def admin_dashboard(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        require_admin(authorization)
+
+        activities = fetch_activities(resolved_db_path)
+        student_emails = set()
+        activity_list: list[dict[str, Any]] = []
+        for name, details in activities.items():
+            participants = details.get("participants", [])
+            for email in participants:
+                student_emails.add(email)
+
+            activity_list.append(
+                {
+                    "name": name,
+                    "description": details.get("description", ""),
+                    "schedule": details.get("schedule", ""),
+                    "max_participants": details.get("max_participants", 0),
+                    "participants_count": len(participants),
+                }
+            )
+
+        recent_activity = sorted(
+            activity_list,
+            key=lambda item: item["participants_count"],
+            reverse=True,
+        )[:5]
+
+        return {
+            "total_activities": len(activity_list),
+            "total_students": len(student_emails),
+            "total_capacity": sum(item["max_participants"] for item in activity_list),
+            "activities": activity_list,
+            "recent_activity": recent_activity,
+        }
+
     @app.post("/admin/activities")
     def admin_create_activity(
         payload: dict[str, Any],
